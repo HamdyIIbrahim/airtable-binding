@@ -1,0 +1,38 @@
+{
+  "name": "airtable-form-binding",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.4.0",
+    "@ant-design/nextjs-registry": "^1.0.1",
+    "@rjsf/antd": "^5.20.1",
+    "@rjsf/core": "^5.20.1",
+    "@rjsf/validator-ajv8": "^5.20.1",
+    "@syncedstore/core": "^0.6.0",
+    "@syncedstore/react": "^0.6.0",
+    "antd": "^5.20.5",
+    "axios": "^1.7.7",
+    "dayjs": "^1.11.13",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-jsonschema-form": "^1.8.1",
+    "socket.io-client": "^4.7.5",
+    "y-webrtc": "^10.3.0",
+    "yjs": "^13.6.18"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "typescript": "^5"
+  }
+}

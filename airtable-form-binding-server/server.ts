@@ -5,6 +5,9 @@ import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import axios from "axios";
 
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
 const PORT = process.env.PORT || 3001;
 
 const app = express();
@@ -15,7 +18,7 @@ const io = new SocketIOServer(server, {
     credentials: true,
   },
 });
-
+axios.defaults.proxy = false;
 app.use(express.json());
 
 let airtableConfig: {
@@ -32,11 +35,11 @@ io.on("connection", (socket) => {
     airtableConfig = config;
     console.log("Airtable configuration received :", airtableConfig);
 
-    socket.on("joinRoom", (recordId: string) => {
+    socket.on("joinRoom", async (recordId: string) => {
       socket.join(recordId);
       console.log(`Client ${socket.id} joined room ${recordId}`);
 
-      fetchRecordData(recordId, (data) => {
+      await fetchRecordData(recordId, (data) => {
         socket.emit("recordData", data);
       });
     });
@@ -63,10 +66,9 @@ io.on("connection", (socket) => {
         console.log(`Error updating Airtable record: ${error.message}`);
       }
     });
-
-    socket.on("disconnect", () => {
-      console.log(`Client disconnected: ${socket.id} `);
-    });
+  });
+  socket.on("disconnect", () => {
+    console.log(`Client disconnected: ${socket.id} `);
   });
 });
 const fetchRecordData = async (
@@ -112,16 +114,48 @@ const fetchRecordData = async (
 
     table.fields.forEach((field: any) => {
       switch (field.type) {
-        case "singleSelect":
+        case "singleCollaborator":
+          jsonSchema.properties[field.name] = {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              email: { type: "string" },
+              name: { type: "string" },
+              permissionLevel: {
+                type: "string",
+                enum: ["none", "read", "comment", "edit", "create"],
+              },
+              profilePicUrl: { type: "string" },
+            },
+            title: field.name,
+          };
+          uiSchema[field.name] = { "ui:widget": "collaborator" };
+          break;
+
+        case "multipleCollaborators":
           jsonSchema.properties[field.name] = {
             type: "array",
-
-            items: field.options.choices.map((choice: any) => {
-              return {
-                title: choice.name,
-                type: "string",
-              };
-            }),
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                email: { type: "string" },
+                name: { type: "string" },
+                permissionLevel: {
+                  type: "string",
+                  enum: ["none", "read", "comment", "edit", "create"],
+                },
+                profilePicUrl: { type: "string" },
+              },
+            },
+            title: field.name,
+          };
+          uiSchema[field.name] = { "ui:widget": "collaborators" };
+          break;
+        case "singleSelect":
+          jsonSchema.properties[field.name] = {
+            type: "string",
+            enum: field.options.choices.map((choice: any) => choice.name),
             title: field.name,
           };
           uiSchema[field.name] = { "ui:widget": "select" };
@@ -166,26 +200,26 @@ const fetchRecordData = async (
     console.log(`Error fetching record data`);
   }
 };
-const pollAirtable = async () => {
-  try {
-    const response = await axios.get(
-      `https://api.airtable.com/v0/${airtableConfig.baseId}/${airtableConfig.tableId}/${airtableConfig.recordId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}`,
-        },
-      }
-    );
+// const pollAirtable = async () => {
+//   try {
+//     const response = await axios.get(
+//       `https://api.airtable.com/v0/${airtableConfig.baseId}/${airtableConfig.tableId}/${airtableConfig.recordId}`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}`,
+//         },
+//       }
+//     );
 
-    const updatedData = response.data.fields;
+//     const updatedData = response.data.fields;
 
-    io.to(airtableConfig.recordId).emit("sync", updatedData);
-  } catch (error: any) {
-    console.log(`Error polling Airtable: ${error.message}`);
-  }
-};
+//     io.to(airtableConfig.recordId).emit("sync", updatedData);
+//   } catch (error: any) {
+//     console.log(`Error polling Airtable: ${error}`);
+//   }
+// };
 
-setInterval(pollAirtable, 10000);
+// setInterval(pollAirtable, 10000);
 
 server.listen(PORT, () => {
   console.log(`Server is running on ${PORT}`);
